@@ -10,3 +10,5 @@ imbalanced-learn
 
 statsmodels
 
+
+huggingface_hub<0.25.0
