@@ -1,3 +1,15 @@
+---
+title: Telco Churn Predictor
+emoji: 📉
+colorFrom: blue
+colorTo: gray
+sdk: gradio
+sdk_version: 5.0.0
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # Telecom Customer Churn Prediction System
 
 ## Overview
