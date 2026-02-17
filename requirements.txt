@@ -3,10 +3,10 @@ numpy
 scikit-learn
 matplotlib
 seaborn
-gradio
+gradio==4.44.0
 joblib
 rich
 imbalanced-learn
 
 statsmodels
-pyaudioop
+
