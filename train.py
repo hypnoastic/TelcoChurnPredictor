@@ -79,6 +79,11 @@ def plot_calibration_curve(models_dict, X_test, y_test, save_path=None):
         plt.close()
 
 def main():
+    # Ensure output directories exist
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+
     # 1. Deep EDA
     print("Running Deep Exploratory Data Analysis...")
     # Start with a small subset of features for the example check, or full execution
