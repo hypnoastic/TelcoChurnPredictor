@@ -1,6 +1,6 @@
 ---
 title: Telco Churn Predictor
-emoji: 📉
+
 colorFrom: blue
 colorTo: gray
 sdk: gradio
