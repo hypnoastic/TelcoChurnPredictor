@@ -1,0 +1,208 @@
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{float}
+\geometry{margin=1in}
+
+\title{Telecom Customer Churn Prediction using Machine Learning}
+\author{Your Name \\ B.Tech CSE (AI)}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Customer churn prediction is a significant business problem in the telecommunications industry. This project presents a production-grade machine learning system for predicting customer churn using structured telecom data. The system incorporates a complete pipeline including data cleaning, feature preprocessing, exploratory data analysis, class imbalance handling, model training, evaluation, and deployment through an interactive web dashboard. Multiple classification models were implemented and evaluated to provide accurate and interpretable churn predictions.
+\end{abstract}
+
+\section{Introduction}
+Customer churn refers to customers discontinuing services from a company. Telecom providers face substantial revenue losses due to churn, making predictive analytics essential for retention strategies. Machine learning models can detect churn patterns using customer demographics, service subscriptions, and billing characteristics.
+
+The goal of this project is to design a modular churn prediction system capable of accurate classification, visualization, and real-time inference.
+
+\section{Dataset Description}
+The dataset consists of telecom customer records including demographic attributes, subscription details, billing information, and churn labels.
+
+Important numeric features:
+\begin{itemize}
+    \item Tenure
+    \item Monthly Charges
+    \item Total Charges
+\end{itemize}
+
+Categorical features include gender, partner status, internet service type, contract type, and payment method.
+
+The target variable Churn is mapped to:
+\begin{itemize}
+    \item 1 – Churn
+    \item 0 – Retained
+\end{itemize}
+
+\section{Data Loading and Cleaning}
+A dedicated data ingestion module was developed.
+
+Cleaning steps include:
+\begin{itemize}
+    \item Conversion of TotalCharges to numeric
+    \item Missing value imputation using mean
+    \item Removal of customerID identifier
+    \item Target variable encoding
+\end{itemize}
+
+\section{Exploratory Data Analysis}
+A comprehensive EDA module was implemented to analyze dataset characteristics.
+
+The analysis includes:
+\begin{itemize}
+    \item Missing value detection
+    \item Class imbalance analysis
+    \item Correlation heatmaps
+    \item Skewness measurement
+    \item Outlier detection using IQR
+    \item Multicollinearity assessment using VIF
+\end{itemize}
+
+\section{Feature Preprocessing}
+A unified preprocessing pipeline was constructed using ColumnTransformer.
+
+\subsection{Numeric Processing}
+\begin{itemize}
+    \item StandardScaler applied to normalize numeric features
+\end{itemize}
+
+\subsection{Categorical Processing}
+\begin{itemize}
+    \item OneHotEncoder applied with unknown category handling
+\end{itemize}
+
+\section{Model Development}
+
+\subsection{Logistic Regression}
+A Logistic Regression model with lbfgs solver and increased iterations was used to provide interpretable baseline performance.
+
+\subsection{Decision Tree}
+A Decision Tree classifier with entropy criterion was implemented to capture non-linear feature relationships and provide rule-based interpretability.
+
+\section{Results and Performance Analysis}
+
+\begin{table}[H]
+\centering
+\caption{Model Performance Comparison}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Model & Accuracy & Precision & Recall & F1 Score \\
+\hline
+Logistic Regression & 79.2\% & 59.4\% & 68.5\% & 63.6\% \\
+Decision Tree & 74.7\% & 51.6\% & 76.4\% & 61.6\% \\
+\hline
+\end{tabular}
+\end{table}
+
+The Logistic Regression model achieved higher accuracy while Decision Tree achieved higher recall, indicating stronger churn detection capability.
+
+\section{Model Visual Analysis}
+
+\subsection{ROC Curve}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{reports/roc_comparison.png}
+\caption{ROC Curve Comparison}
+\end{figure}
+
+\subsection{Precision-Recall Curve}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{reports/pr_curve.png}
+\caption{Precision Recall Curve}
+\end{figure}
+
+\subsection{Logistic Regression Confusion Matrix}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{reports/logistic_regression_cm.png}
+\caption{Logistic Regression Confusion Matrix}
+\end{figure}
+
+\subsection{Top Logistic Regression Coefficients}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{reports/lr_coef.png}
+\caption{Top Logistic Regression Coefficients}
+\end{figure}
+
+\subsection{Decision Tree Confusion Matrix}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{reports/decision_tree_cm.png}
+\caption{Decision Tree Confusion Matrix}
+\end{figure}
+
+\subsection{Decision Tree Feature Importance}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{reports/dt_importance.png}
+\caption{Decision Tree Feature Importance}
+\end{figure}
+
+\section{Exploratory Data Analysis Visualizations}
+
+\subsection{Tenure Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{reports/dist_tenure.png}
+\caption{Tenure Distribution}
+\end{figure}
+
+\subsection{Monthly Charges Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{reports/dist_MonthlyCharges.png}
+\caption{Monthly Charges Distribution}
+\end{figure}
+
+\subsection{Total Charges Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{reports/dist_TotalCharges.png}
+\caption{Total Charges Distribution}
+\end{figure}
+
+\subsection{Correlation Matrix}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{reports/correlation_matrix.png}
+\caption{Correlation Matrix}
+\end{figure}
+
+\section{Deployment}
+The trained model and preprocessing pipeline were integrated into a Gradio-based dashboard enabling real-time churn prediction and visualization.
+
+\section{Discussion}
+The project demonstrates a complete machine learning lifecycle including data processing, modeling, evaluation, and deployment. The modular design improves scalability and maintainability.
+
+\section{Conclusion}
+This project presents a production-ready telecom churn prediction system built using traditional machine learning techniques. The system integrates data processing, modeling, evaluation, and deployment to deliver an end-to-end predictive solution.
+
+\section{Future Work}
+\begin{itemize}
+\item Retrieval-Augmented Generation integration using telecom knowledge base
+\item Agentic workflow development for prediction and recommendation orchestration
+\item LLM-based churn explanation module
+\item Vector database creation for customer interaction knowledge
+\item Multi-agent decision support system
+\item Hallucination mitigation strategies
+\item Conversational retention assistant
+\item Cloud-based scalable deployment
+\end{itemize}
+
+\section{References}
+\begin{itemize}
+\item Scikit-Learn Documentation
+\item Imbalanced-Learn Documentation
+\item Teleco Churn Dataset Documentation
+\end{itemize}
+
+\end{document}

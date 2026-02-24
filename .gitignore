@@ -8,5 +8,4 @@ venv/
 .vscode/
 *.joblib
 plots/
-reports/
 data/
