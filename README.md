@@ -12,24 +12,54 @@ license: mit
 
 # Telecom Customer Churn Prediction System
 
-Production ML system for predicting customer churn with 85% ROC-AUC using Logistic Regression, Decision Trees, and XGBoost.
+Production ML system for predicting customer churn using Logistic Regression and Decision Trees with advanced feature engineering and SMOTE balancing.
 
 ## System Flow
 
 ```mermaid
-flowchart LR
-    A[Raw Data<br/>7,043 rows] --> B[Preprocessing<br/>Scale + Encode]
-    B --> C[Feature Engineering<br/>Polynomial + SMOTE]
-    C --> D[Model Training<br/>LR + DT + XGB]
-    D --> E[Evaluation<br/>ROC-AUC: 0.85]
-    E --> F[Gradio App<br/>Predictions]
+flowchart TB
+    A["Raw Data<br/>7,043 customers<br/>21 features"] --> B["Data Cleaning<br/>Handle missing values<br/>Encode target"]
+    B --> C["Train-Test Split<br/>75% train / 25% test<br/>Stratified sampling"]
     
-    style A fill:#e3f2fd
-    style B fill:#fff3e0
-    style C fill:#f3e5f5
-    style D fill:#e8f5e9
-    style E fill:#fce4ec
-    style F fill:#e0f2f1
+    C --> D["Numeric Processing<br/>StandardScaler<br/>4 features"]
+    C --> E["Categorical Processing<br/>OneHotEncoder<br/>15 features"]
+    
+    D --> F["Feature Engineering<br/>PolynomialFeatures<br/>Lasso Selection"]
+    E --> F
+    
+    F --> G["SMOTE Balancing<br/>2.77:1 → 1:1<br/>Training set only"]
+    
+    G --> H["Model Training<br/>Stratified 5-Fold CV"]
+    
+    H --> I["Logistic Regression<br/>GridSearchCV<br/>C, penalty"]
+    H --> J["Decision Tree<br/>GridSearchCV<br/>max_depth, min_samples"]
+    
+    I --> K["Threshold Optimization<br/>Maximize F1-Score<br/>Precision-Recall curve"]
+    J --> K
+    
+    K --> L["Model Evaluation<br/>Accuracy, Precision, Recall<br/>F1-Score, ROC-AUC"]
+    
+    L --> M["Save Models<br/>.joblib files<br/>Scaler + Metrics"]
+    
+    M --> N["Gradio Dashboard<br/>3 Tabs: Performance<br/>EDA, Predictions"]
+    
+    N --> O["Churn Prediction<br/>Yes/No + Probability<br/>Real-time inference"]
+    
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style B fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style C fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style D fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style F fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style G fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style H fill:#e0f2f1,stroke:#00796b,stroke-width:2px
+    style I fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style J fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style K fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    style L fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style M fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style N fill:#e0f7fa,stroke:#00838f,stroke-width:2px
+    style O fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
 ```
 
 ## Pipeline Overview
@@ -61,7 +91,6 @@ flowchart LR
 - **Models**:
   - **Logistic Regression**: C, penalty, max_features
   - **Decision Tree**: max_depth, min_samples_leaf, class_weight
-  - **XGBoost**: n_estimators, learning_rate, max_depth, scale_pos_weight
 - **Scoring**: Accuracy (primary metric)
 
 ### 5. Threshold Optimization
@@ -131,4 +160,4 @@ python app.py  # http://127.0.0.1:7860
 
 ## Technologies
 
-Scikit-Learn • Imbalanced-Learn • XGBoost • Pandas • Gradio
+Scikit-Learn • Imbalanced-Learn • Pandas • Gradio
