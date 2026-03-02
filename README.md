@@ -1,6 +1,5 @@
 ---
 title: Telco Churn Predictor
-
 colorFrom: blue
 colorTo: gray
 sdk: gradio
@@ -15,92 +14,267 @@ license: mit
 
 ## Overview
 
-This project is a production-grade machine learning system designed to predict customer churn for a telecommunications provider. It utilizes a robust pipeline involving data preprocessing, feature engineering, and ensemble modeling to identify customers at risk of leaving. The system is deployed via an interactive web dashboard for real-time inference and business analytics.
+Production-grade ML system for predicting telecom customer churn using advanced preprocessing, feature engineering, and ensemble modeling with an interactive Gradio dashboard.
 
-## System Architecture
+## System Architecture & Data Flow
 
-The system follows a modular architecture composed of three main layers:
+```mermaid
+flowchart TB
+    subgraph Input["INPUT LAYER"]
+        A[Raw CSV Data<br/>7,043 customers<br/>21 features]
+    end
+    
+    subgraph Processing["DATA PROCESSING LAYER"]
+        B[Data Loader<br/>src/data_loader.py]
+        C[Missing Value Handler<br/>TotalCharges imputation]
+        D[Feature Separator<br/>Numeric vs Categorical]
+        E[Preprocessor<br/>src/preprocessing.py]
+        F[StandardScaler<br/>Numeric features]
+        G[OneHotEncoder<br/>Categorical features]
+        H[Feature Engineering<br/>PolynomialFeatures]
+        I[Feature Selection<br/>Lasso Regression]
+        J[SMOTE Balancing<br/>2.77:1 → 1:1]
+    end
+    
+    subgraph Training["MODEL TRAINING LAYER"]
+        K[Stratified 5-Fold CV]
+        L[Logistic Regression<br/>+ Hyperparameter Tuning]
+        M[Decision Tree<br/>+ Hyperparameter Tuning]
+        N[GridSearchCV<br/>Optimize Accuracy]
+        O[Threshold Optimization<br/>Maximize F1-Score]
+    end
+    
+    subgraph Evaluation["EVALUATION LAYER"]
+        P[Metrics Calculation<br/>Accuracy, Precision, Recall, F1, ROC-AUC]
+        Q[Confusion Matrix]
+        R[ROC Curve]
+        S[Precision-Recall Curve]
+        T[Feature Importance]
+        U[Calibration Curve]
+    end
+    
+    subgraph Storage["STORAGE LAYER"]
+        V[(Trained Models<br/>models/*.joblib)]
+        W[(Metrics<br/>metrics.joblib)]
+        X[(Visualizations<br/>plots/*.png)]
+        Y[(Reports<br/>reports/*.txt)]
+    end
+    
+    subgraph Application["APPLICATION LAYER"]
+        Z[Gradio Web Interface<br/>app.py]
+        AA[Model Performance<br/>Dashboard]
+        AB[EDA Visualizations]
+        AC[Real-time Prediction<br/>System]
+    end
+    
+    subgraph Output["OUTPUT LAYER"]
+        AD[Churn Prediction<br/>Yes/No]
+        AE[Probability Score<br/>0-100%]
+        AF[Risk Assessment]
+    end
+    
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    E --> G
+    F --> H
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    K --> L
+    K --> M
+    L --> N
+    M --> N
+    N --> O
+    O --> P
+    P --> Q
+    P --> R
+    P --> S
+    P --> T
+    P --> U
+    L --> V
+    M --> V
+    P --> W
+    Q --> X
+    R --> X
+    S --> X
+    T --> X
+    U --> X
+    P --> Y
+    V --> Z
+    W --> Z
+    X --> Z
+    Z --> AA
+    Z --> AB
+    Z --> AC
+    AC --> AD
+    AC --> AE
+    AC --> AF
+    
+    style Input fill:#e3f2fd
+    style Processing fill:#fff3e0
+    style Training fill:#f3e5f5
+    style Evaluation fill:#e8f5e9
+    style Storage fill:#fce4ec
+    style Application fill:#e0f2f1
+    style Output fill:#fff9c4
+```
 
-### 1. Data Processing Layer
+## Detailed Pipeline Flow
 
-- **Data Ingestion**: Loads raw customer data from CSV files.
-- **Preprocessing**: Handles missing values, encodes categorical variables, and scales numerical features using standard scalers.
-- **Feature Engineering**: Generates interaction terms (Polynomial Features) and performs feature selection (Lasso Regression) to enhance model predictive power.
-- **Balancing**: Implements SMOTE (Synthetic Minority Over-sampling Technique) to address class imbalance in the training dataset.
+### 1. Data Ingestion & Cleaning
+```python
+data_loader.py → load_and_clean_data()
+├── Load CSV (7,043 rows × 21 columns)
+├── Handle TotalCharges (11 missing → impute with MonthlyCharges)
+├── Drop customerID (identifier)
+└── Encode target: Churn (Yes=1, No=0)
+```
 
-### 2. Model Training Layer
+### 2. Feature Preprocessing
+```python
+preprocessing.py → get_preprocessor()
+├── Numeric Features (4): tenure, MonthlyCharges, TotalCharges, SeniorCitizen
+│   └── StandardScaler (mean=0, std=1)
+├── Categorical Features (15): gender, Contract, InternetService, etc.
+│   └── OneHotEncoder (drop_first=True)
+└── Output: 30 engineered features
+```
 
-The system employs a multi-model approach to balance accuracy and interpretability:
+### 3. Advanced Feature Engineering (Logistic Regression)
+```python
+train.py → Logistic Regression Pipeline
+├── PolynomialFeatures (degree=2, interaction_only=True)
+├── Lasso Feature Selection (max_features=30-50)
+├── SMOTE (balance classes 2.77:1 → 1:1)
+└── Logistic Regression (C=0.1-10, class_weight='balanced')
+```
 
-- **Logistic Regression**: Optimized with Polynomial Features and Lasso Selection for high interpretability and strong baseline performance.
-- **Decision Tree**: tailored for capturing non-linear patterns and providing clear decision rules.
-- **Evaluation**: rigorous testing using Stratified K-Fold Cross-Validation. Metrics include Accuracy, Precision, Recall, F1-Score, and ROC-AUC.
+### 4. Model Training & Optimization
+```python
+train.py → GridSearchCV
+├── Stratified 5-Fold Cross-Validation
+├── Scoring: Accuracy (primary metric)
+├── Hyperparameter Grid:
+│   ├── Logistic Regression: C, penalty, max_features
+│   └── Decision Tree: max_depth, min_samples_leaf, class_weight
+└── Best Model Selection (highest CV accuracy)
+```
 
-### 3. Application Layer (Dashboard)
+### 5. Threshold Optimization
+```python
+train.py → get_optimal_threshold()
+├── Generate probability predictions on test set
+├── Compute Precision-Recall curve
+├── Calculate F1-Score for each threshold
+└── Select threshold maximizing F1-Score
+```
 
-A Gradio-based web interface serves as the end-user entry point:
+### 6. Model Evaluation
+```python
+evaluation.py → get_evaluation_metrics()
+├── Accuracy: Overall correctness
+├── Precision: True positives / Predicted positives
+├── Recall: True positives / Actual positives
+├── F1-Score: Harmonic mean of Precision & Recall
+└── ROC-AUC: Area under ROC curve
+```
 
-- **Model Performance Dashboard**: Visualizes model metrics, ROC curves, Precision-Recall curves, Confusion Matrices, and Feature Importance methodology.
-- **Exploratory Data Analysis (EDA)**: Displays data distributions and correlation matrices to understand underlying data patterns.
-- **Prediction System**: Accepts real-time customer inputs and outputs a churn probability score along with a binary retention/churn decision.
+### 7. Visualization Generation
+```python
+evaluation.py → Plotting Functions
+├── Confusion Matrix (TP, TN, FP, FN)
+├── ROC Curve (TPR vs FPR)
+├── Precision-Recall Curve
+├── Feature Importance (Decision Tree)
+├── Coefficients (Logistic Regression)
+└── Calibration Curve (probability reliability)
+```
+
+### 8. Model Persistence
+```python
+joblib.dump()
+├── models/logistic_regression_model.joblib
+├── models/decision_tree_model.joblib
+├── models/metrics.joblib
+└── models/scaler.joblib (for inference)
+```
+
+### 9. Web Application Deployment
+```python
+app.py → Gradio Interface
+├── Tab 1: Model Performance Dashboard
+│   ├── Metrics table (Accuracy, Precision, Recall, F1)
+│   ├── ROC & PR curves
+│   └── Confusion matrices
+├── Tab 2: Exploratory Data Analysis
+│   ├── Distribution plots (tenure, charges)
+│   └── Correlation matrix
+└── Tab 3: Real-time Prediction System
+    ├── Input: 19 customer features
+    ├── Model selection (LR or DT)
+    ├── Predict button
+    └── Output: Churn label + Probability score
+```
+
+## Key Technical Decisions
+
+| Component | Decision | Rationale |
+|-----------|----------|----------|
+| **Imbalance Handling** | SMOTE | 2.77:1 ratio requires synthetic oversampling |
+| **Feature Scaling** | StandardScaler | Required for Logistic Regression convergence |
+| **Encoding** | OneHotEncoder | Prevents ordinal assumptions in categorical data |
+| **Feature Engineering** | PolynomialFeatures | Captures interaction effects (e.g., tenure × contract) |
+| **Feature Selection** | Lasso (L1) | Reduces dimensionality, prevents overfitting |
+| **CV Strategy** | Stratified 5-Fold | Maintains class distribution in each fold |
+| **Threshold** | F1-Optimized | Balances precision and recall for business needs |
+| **Calibration** | Sigmoid | Ensures probability scores reflect true likelihood |
 
 ## Project Structure
 
 ```
 .
-├── app.py                 # Main entry point for the Web Dashboard
-├── train.py               # Training pipeline execution script
+├── app.py                 # Gradio web interface (entry point)
+├── train.py               # Training pipeline orchestrator
 ├── src/
-│   ├── data_loader.py     # Data ingestion logic
-│   ├── preprocessing.py   # Feature transformation pipelines
-│   ├── models.py          # Model definitions
-│   ├── evaluation.py      # Metric calculation and plotting libraries
-│   └── eda.py             # Exploratory Data Analysis utilities
-├── data/                  # Raw dataset directory
-├── models/                # Serialized trained models (.joblib)
-├── plots/                 # Generated visualization artifacts
-├── reports/               # Text-based performance reports
-└── requirements.txt       # Project dependencies
+│   ├── data_loader.py     # CSV loading & cleaning
+│   ├── preprocessing.py   # ColumnTransformer setup
+│   ├── models.py          # Model factory functions
+│   ├── evaluation.py      # Metrics & visualization
+│   └── eda.py             # Exploratory analysis
+├── data/                  # Raw CSV dataset
+├── models/                # Serialized models (.joblib)
+├── plots/                 # Generated visualizations (.png)
+├── reports/               # Analysis reports (.txt, .md)
+└── requirements.txt       # Python dependencies
 ```
 
-## Installation and Usage
-
-### Prerequisites
-
-- Python 3.8+
-- Virtual Environment (recommended)
+## Installation & Usage
 
 ### Setup
-
-1. Clone the repository.
-2. Create and activate a virtual environment.
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
 ### Training
-
-To retrain the models and regenerate analysis artifacts:
-
 ```bash
-python train.py
+python train.py  # Trains models, generates plots, saves artifacts
 ```
 
-### Running the Dashboard
-
-To launch the interactive application:
-
+### Launch Dashboard
 ```bash
-python app.py
+python app.py  # Starts Gradio interface at http://127.0.0.1:7860
 ```
 
-The application will be accessible at the local URL provided in the terminal (typically http://127.0.0.1:7860).
+## Technologies
 
-## Technologies Used
-
-- **Language**: Python
-- **Machine Learning**: Scikit-Learn, Imbalanced-Learn
-- **Data Manipulation**: Pandas, NumPy
+- **ML**: Scikit-Learn, Imbalanced-Learn, XGBoost
+- **Data**: Pandas, NumPy
 - **Visualization**: Matplotlib, Seaborn
 - **Interface**: Gradio
+- **Deployment**: Joblib (model serialization)
