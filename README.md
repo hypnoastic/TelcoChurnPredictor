@@ -18,48 +18,48 @@ Production ML system for predicting customer churn using Logistic Regression and
 
 ```mermaid
 flowchart TB
-    A["Raw Data<br/>7,043 customers<br/>21 features"] --> B["Data Cleaning<br/>Handle missing values<br/>Encode target"]
-    B --> C["Train-Test Split<br/>75% train / 25% test<br/>Stratified sampling"]
+    A["<b>Raw Data</b><br/>7,043 customers<br/>21 features"] --> B["<b>Data Cleaning</b><br/>Handle missing values<br/>Encode target"]
+    B --> C["<b>Train-Test Split</b><br/>75% train / 25% test<br/>Stratified sampling"]
     
-    C --> D["Numeric Processing<br/>StandardScaler<br/>4 features"]
-    C --> E["Categorical Processing<br/>OneHotEncoder<br/>15 features"]
+    C --> D["<b>Numeric Processing</b><br/>StandardScaler<br/>4 features"]
+    C --> E["<b>Categorical Processing</b><br/>OneHotEncoder<br/>15 features"]
     
-    D --> F["Feature Engineering<br/>PolynomialFeatures<br/>Lasso Selection"]
+    D --> F["<b>Feature Engineering</b><br/>PolynomialFeatures<br/>Lasso Selection"]
     E --> F
     
-    F --> G["SMOTE Balancing<br/>2.77:1 → 1:1<br/>Training set only"]
+    F --> G["<b>SMOTE Balancing</b><br/>2.77:1 → 1:1<br/>Training set only"]
     
-    G --> H["Model Training<br/>Stratified 5-Fold CV"]
+    G --> H["<b>Model Training</b><br/>Stratified 5-Fold CV"]
     
-    H --> I["Logistic Regression<br/>GridSearchCV<br/>C, penalty"]
-    H --> J["Decision Tree<br/>GridSearchCV<br/>max_depth, min_samples"]
+    H --> I["<b>Logistic Regression</b><br/>GridSearchCV<br/>C, penalty"]
+    H --> J["<b>Decision Tree</b><br/>GridSearchCV<br/>max_depth, min_samples"]
     
-    I --> K["Threshold Optimization<br/>Maximize F1-Score<br/>Precision-Recall curve"]
+    I --> K["<b>Threshold Optimization</b><br/>Maximize F1-Score<br/>Precision-Recall curve"]
     J --> K
     
-    K --> L["Model Evaluation<br/>Accuracy, Precision, Recall<br/>F1-Score, ROC-AUC"]
+    K --> L["<b>Model Evaluation</b><br/>Accuracy, Precision, Recall<br/>F1-Score, ROC-AUC"]
     
-    L --> M["Save Models<br/>.joblib files<br/>Scaler + Metrics"]
+    L --> M["<b>Save Models</b><br/>.joblib files<br/>Scaler + Metrics"]
     
-    M --> N["Gradio Dashboard<br/>3 Tabs: Performance<br/>EDA, Predictions"]
+    M --> N["<b>Gradio Dashboard</b><br/>3 Tabs: Performance<br/>EDA, Predictions"]
     
-    N --> O["Churn Prediction<br/>Yes/No + Probability<br/>Real-time inference"]
+    N --> O["<b>Churn Prediction</b><br/>Yes/No + Probability<br/>Real-time inference"]
     
-    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style B fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style C fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style D fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style F fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style G fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    style H fill:#e0f2f1,stroke:#00796b,stroke-width:2px
-    style I fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
-    style J fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
-    style K fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
-    style L fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    style M fill:#ede7f6,stroke:#512da8,stroke-width:2px
-    style N fill:#e0f7fa,stroke:#00838f,stroke-width:2px
-    style O fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
+    style A fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000
+    style B fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000
+    style C fill:#e1bee7,stroke:#4a148c,stroke-width:2px,color:#000
+    style D fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000
+    style E fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000
+    style F fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    style G fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000
+    style H fill:#b2dfdb,stroke:#004d40,stroke-width:2px,color:#000
+    style I fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
+    style J fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
+    style K fill:#dcedc8,stroke:#33691e,stroke-width:2px,color:#000
+    style L fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000
+    style M fill:#d1c4e9,stroke:#311b92,stroke-width:2px,color:#000
+    style N fill:#b2ebf2,stroke:#006064,stroke-width:2px,color:#000
+    style O fill:#a5d6a7,stroke:#1b5e20,stroke-width:3px,color:#000
 ```
 
 ## Pipeline Overview
