@@ -4,10 +4,13 @@
 \usepackage{hyperref}
 \usepackage{geometry}
 \usepackage{float}
+\usepackage{array}
+\usepackage{longtable}
 \geometry{margin=1in}
+\graphicspath{{../plots/}{../plots/eda/}}
 
-\title{Telecom Customer Churn Prediction using Machine Learning}
-\author{Your Name \\ B.Tech CSE (AI)}
+\title{Customer Churn Prediction and Agentic Retention Strategy}
+\author{Project 5 \\ B.Tech CSE (AI)}
 \date{}
 
 \begin{document}
@@ -15,83 +18,95 @@
 \maketitle
 
 \begin{abstract}
-Customer churn prediction is a significant business problem in the telecommunications industry. This project presents a production-grade machine learning system for predicting customer churn using structured telecom data. The system incorporates a complete pipeline including data cleaning, feature preprocessing, exploratory data analysis, class imbalance handling, model training, evaluation, and deployment through an interactive web dashboard. Multiple classification models were implemented and evaluated to provide accurate and interpretable churn predictions.
+This project implements a complete customer churn analytics system in two milestones. Milestone 1 delivers a machine learning pipeline for telecom churn prediction using classical supervised learning, preprocessing, model evaluation, visualization, and an interactive Gradio interface. Milestone 2 extends the same system into an agentic retention strategist built with LangGraph, local retrieval using FAISS, and Gemini-based structured generation. The final system predicts churn risk, explains the major churn drivers, retrieves grounded retention playbooks, and generates actionable intervention plans with follow-up question answering.
 \end{abstract}
 
-\section{Introduction}
-Customer churn refers to customers discontinuing services from a company. Telecom providers face substantial revenue losses due to churn, making predictive analytics essential for retention strategies. Machine learning models can detect churn patterns using customer demographics, service subscriptions, and billing characteristics.
-
-The goal of this project is to design a modular churn prediction system capable of accurate classification, visualization, and real-time inference.
+\section{Problem Statement}
+Customer churn causes direct revenue loss and increases acquisition cost for telecom businesses. The objective of this project is to:
+\begin{itemize}
+    \item predict whether a customer is likely to churn,
+    \item identify the main business drivers of that risk,
+    \item present both single-customer and batch predictions through a hosted application,
+    \item extend the prediction system into an AI assistant that proposes retention actions.
+\end{itemize}
 
 \section{Dataset Description}
-The dataset consists of telecom customer records including demographic attributes, subscription details, billing information, and churn labels.
+The project uses the Telco Customer Churn dataset containing 7,043 customer records. Each row represents one customer and includes demographic, service, and billing information.
 
 Important numeric features:
 \begin{itemize}
-    \item Tenure
-    \item Monthly Charges
-    \item Total Charges
+    \item tenure
+    \item MonthlyCharges
+    \item TotalCharges
 \end{itemize}
 
-Categorical features include gender, partner status, internet service type, contract type, and payment method.
-
-The target variable Churn is mapped to:
+Important categorical features:
 \begin{itemize}
-    \item 1 – Churn
-    \item 0 – Retained
+    \item gender
+    \item Partner
+    \item Dependents
+    \item InternetService
+    \item Contract
+    \item PaymentMethod
+    \item TechSupport
+    \item OnlineSecurity
 \end{itemize}
 
-\section{Data Loading and Cleaning}
-A dedicated data ingestion module was developed.
-
-Cleaning steps include:
+The target variable \texttt{Churn} is encoded as:
 \begin{itemize}
-    \item Conversion of TotalCharges to numeric
-    \item Missing value imputation using mean
-    \item Removal of customerID identifier
-    \item Target variable encoding
+    \item 1 for churn
+    \item 0 for retained
 \end{itemize}
 
-\section{Exploratory Data Analysis}
-A comprehensive EDA module was implemented to analyze dataset characteristics.
+\section{Milestone 1: ML-Based Churn Prediction}
 
-The analysis includes:
+\subsection{Data Cleaning and Preprocessing}
+The preprocessing pipeline is implemented using \texttt{ColumnTransformer}.
+
+Cleaning steps:
 \begin{itemize}
-    \item Missing value detection
-    \item Class imbalance analysis
-    \item Correlation heatmaps
-    \item Skewness measurement
-    \item Outlier detection using IQR
-    \item Multicollinearity assessment using VIF
+    \item convert \texttt{TotalCharges} to numeric,
+    \item impute missing numeric values,
+    \item remove the customer identifier,
+    \item encode the churn label,
+    \item standardize numeric features,
+    \item one-hot encode categorical features.
 \end{itemize}
 
-\section{Feature Preprocessing}
-A unified preprocessing pipeline was constructed using ColumnTransformer.
-
-\subsection{Numeric Processing}
+\subsection{Exploratory Data Analysis}
+The EDA module performs:
 \begin{itemize}
-    \item StandardScaler applied to normalize numeric features
+    \item missing-value checks,
+    \item churn distribution analysis,
+    \item skewness checks,
+    \item outlier detection,
+    \item multicollinearity analysis using VIF,
+    \item correlation heatmap generation.
 \end{itemize}
 
-\subsection{Categorical Processing}
+\subsection{Model Development}
+Two production models are used in the hosted system:
 \begin{itemize}
-    \item OneHotEncoder applied with unknown category handling
+    \item Logistic Regression
+    \item Decision Tree
 \end{itemize}
 
-\section{Model Development}
+The Logistic Regression pipeline includes polynomial interaction features, Lasso-based feature selection, and SMOTE balancing. The Decision Tree pipeline uses preprocessing, SMOTE, and tuned tree hyperparameters.
 
-\subsection{Logistic Regression}
-A Logistic Regression model with lbfgs solver and increased iterations was used to provide interpretable baseline performance.
-
-\subsection{Decision Tree}
-A Decision Tree classifier with entropy criterion was implemented to capture non-linear feature relationships and provide rule-based interpretability.
-
-\section{Results and Performance Analysis}
+\subsection{Evaluation Metrics}
+The models are evaluated using:
+\begin{itemize}
+    \item Accuracy
+    \item Precision
+    \item Recall
+    \item F1 Score
+    \item Confusion Matrix
+\end{itemize}
 
 \begin{table}[H]
 \centering
-\caption{Model Performance Comparison}
-\begin{tabular}{|c|c|c|c|c|}
+\caption{Final Test Set Performance}
+\begin{tabular}{|m{4cm}|m{2cm}|m{2cm}|m{2cm}|m{2cm}|}
 \hline
 Model & Accuracy & Precision & Recall & F1 Score \\
 \hline
@@ -101,108 +116,178 @@ Decision Tree & 74.7\% & 51.6\% & 76.4\% & 61.6\% \\
 \end{tabular}
 \end{table}
 
-The Logistic Regression model achieved higher accuracy while Decision Tree achieved higher recall, indicating stronger churn detection capability.
+The Logistic Regression model is used as the default scoring model for the agentic workflow because it offers strong overall performance and clearer driver explanations. The Decision Tree remains available for comparison inside the dashboard.
 
-\section{Model Visual Analysis}
+\section{Milestone 1 Interface}
+The hosted Gradio application provides:
+\begin{itemize}
+    \item model performance dashboard,
+    \item EDA visualizations,
+    \item single-customer prediction form,
+    \item CSV batch scoring with downloadable results,
+    \item top churn-driver summaries.
+\end{itemize}
+
+\section{Milestone 2: Agentic Retention Strategist}
+
+\subsection{System Overview}
+Milestone 2 extends the prediction system into a stateful agent that turns churn risk into retention recommendations. The workflow is implemented with LangGraph and uses a local knowledge base plus retrieval.
+
+\subsection{Agent Workflow}
+The LangGraph flow contains the following stages:
+\begin{enumerate}
+    \item prepare customer input,
+    \item score churn risk using the shared inference layer,
+    \item summarize churn drivers and business context,
+    \item retrieve relevant retention strategies from FAISS,
+    \item generate a structured retention report using Gemini,
+    \item answer follow-up questions using the same case state.
+\end{enumerate}
+
+\subsection{Explicit State}
+The graph stores:
+\begin{itemize}
+    \item customer payload,
+    \item chosen model,
+    \item prediction result,
+    \item risk summary,
+    \item retrieval query,
+    \item retrieved evidence,
+    \item structured retention report,
+    \item follow-up conversation history.
+\end{itemize}
+
+\subsection{Retrieval-Augmented Generation}
+The knowledge base contains telecom-specific playbooks for:
+\begin{itemize}
+    \item pricing retention,
+    \item contract upgrades,
+    \item support recovery,
+    \item payment friction,
+    \item digital adoption,
+    \item high-value customer handling.
+\end{itemize}
+
+Documents are embedded using \texttt{gemini-embedding-001} and indexed locally with FAISS. This keeps the system compatible with free-tier hosting constraints.
+
+\subsection{Structured Output}
+The retention strategist returns a report with:
+\begin{itemize}
+    \item business context,
+    \item risk summary,
+    \item key drivers,
+    \item retrieved evidence,
+    \item recommended actions,
+    \item priority order,
+    \item next-touch plan,
+    \item confidence notes.
+\end{itemize}
+
+\section{Architecture Summary}
+\begin{enumerate}
+    \item User submits a customer profile or CSV file.
+    \item Shared inference loads the trained ML artifacts and computes churn probability.
+    \item The app extracts major churn drivers for explainability.
+    \item The LangGraph workflow formulates a retrieval query.
+    \item FAISS returns relevant retention playbooks.
+    \item Gemini generates a structured retention plan grounded in the retrieved evidence.
+    \item The user can ask follow-up questions inside the same case session.
+\end{enumerate}
+
+\section{Deployment}
+The final system is deployed as a hosted Gradio application on Hugging Face Spaces. The deployment uses free-tier compatible components:
+\begin{itemize}
+    \item Gradio for the interface,
+    \item scikit-learn for ML inference,
+    \item LangGraph for agent orchestration,
+    \item FAISS for local retrieval,
+    \item Gemini API for structured report generation.
+\end{itemize}
+
+The app reads \texttt{GEMINI\_API\_KEY} from Space secrets. When model artifacts are absent in a deployment branch, the application can bootstrap training automatically before serving predictions.
+
+\section{Visual Results}
 
 \subsection{ROC Curve}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{reports/roc_comparison.png}
-\caption{ROC Curve Comparison}
+\includegraphics[width=0.82\textwidth]{roc_comparison.png}
+\caption{ROC curve comparison for the deployed models}
 \end{figure}
 
 \subsection{Precision-Recall Curve}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{reports/pr_curve.png}
-\caption{Precision Recall Curve}
+\includegraphics[width=0.82\textwidth]{pr_curve.png}
+\caption{Precision-recall curve comparison}
 \end{figure}
 
 \subsection{Logistic Regression Confusion Matrix}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{reports/logistic_regression_cm.png}
-\caption{Logistic Regression Confusion Matrix}
-\end{figure}
-
-\subsection{Top Logistic Regression Coefficients}
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.8\textwidth]{reports/lr_coef.png}
-\caption{Top Logistic Regression Coefficients}
+\includegraphics[width=0.72\textwidth]{logistic_regression_cm.png}
+\caption{Logistic Regression confusion matrix}
 \end{figure}
 
 \subsection{Decision Tree Confusion Matrix}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{reports/decision_tree_cm.png}
-\caption{Decision Tree Confusion Matrix}
+\includegraphics[width=0.72\textwidth]{decision_tree_cm.png}
+\caption{Decision Tree confusion matrix}
+\end{figure}
+
+\subsection{Logistic Regression Driver Coefficients}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{lr_coef.png}
+\caption{Top Logistic Regression coefficients}
 \end{figure}
 
 \subsection{Decision Tree Feature Importance}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{reports/dt_importance.png}
-\caption{Decision Tree Feature Importance}
+\includegraphics[width=0.82\textwidth]{dt_importance.png}
+\caption{Decision Tree feature importance}
 \end{figure}
 
-\section{Exploratory Data Analysis Visualizations}
-
-\subsection{Tenure Distribution}
+\subsection{EDA: Tenure Distribution}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{reports/dist_tenure.png}
-\caption{Tenure Distribution}
+\includegraphics[width=0.72\textwidth]{dist_tenure.png}
+\caption{Tenure distribution by churn class}
 \end{figure}
 
-\subsection{Monthly Charges Distribution}
+\subsection{EDA: Monthly Charges Distribution}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{reports/dist_MonthlyCharges.png}
-\caption{Monthly Charges Distribution}
+\includegraphics[width=0.72\textwidth]{dist_MonthlyCharges.png}
+\caption{Monthly charges distribution by churn class}
 \end{figure}
 
-\subsection{Total Charges Distribution}
+\subsection{EDA: Total Charges Distribution}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{reports/dist_TotalCharges.png}
-\caption{Total Charges Distribution}
+\includegraphics[width=0.72\textwidth]{dist_TotalCharges.png}
+\caption{Total charges distribution by churn class}
 \end{figure}
 
-\subsection{Correlation Matrix}
+\subsection{EDA: Correlation Matrix}
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{reports/correlation_matrix.png}
-\caption{Correlation Matrix}
+\includegraphics[width=0.82\textwidth]{correlation_matrix.png}
+\caption{Correlation matrix for numeric features}
 \end{figure}
-
-\section{Deployment}
-The trained model and preprocessing pipeline were integrated into a Gradio-based dashboard enabling real-time churn prediction and visualization.
-
-\section{Discussion}
-The project demonstrates a complete machine learning lifecycle including data processing, modeling, evaluation, and deployment. The modular design improves scalability and maintainability.
 
 \section{Conclusion}
-This project presents a production-ready telecom churn prediction system built using traditional machine learning techniques. The system integrates data processing, modeling, evaluation, and deployment to deliver an end-to-end predictive solution.
-
-\section{Future Work}
-\begin{itemize}
-\item Retrieval-Augmented Generation integration using telecom knowledge base
-\item Agentic workflow development for prediction and recommendation orchestration
-\item LLM-based churn explanation module
-\item Vector database creation for customer interaction knowledge
-\item Multi-agent decision support system
-\item Hallucination mitigation strategies
-\item Conversational retention assistant
-\item Cloud-based scalable deployment
-\end{itemize}
+This project demonstrates a full progression from predictive analytics to intelligent intervention. Milestone 1 provides a robust churn prediction system with explainable outputs and hosted usability. Milestone 2 adds an agentic retention layer that reasons over churn risk, retrieves grounded best practices, and produces structured actions for business teams. The resulting system satisfies both the predictive ML requirements and the agentic AI retention strategy requirements of the project.
 
 \section{References}
 \begin{itemize}
-\item Scikit-Learn Documentation
-\item Imbalanced-Learn Documentation
-\item Teleco Churn Dataset Documentation
+    \item Scikit-Learn Documentation
+    \item Imbalanced-Learn Documentation
+    \item LangGraph Documentation
+    \item FAISS Documentation
+    \item Google Gemini API Documentation
 \end{itemize}
 
 \end{document}

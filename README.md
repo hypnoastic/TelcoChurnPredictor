@@ -21,9 +21,9 @@ This project now covers both assignment milestones in one hosted Gradio applicat
 
 The app is designed for Hugging Face Spaces with `python_version: "3.10"`.
 
-- The app **does not retrain on startup**.
-- Saved models are loaded from `models/`.
-- Missing plots are regenerated from the saved models and dataset without retraining.
+- If trained model artifacts are present, the app loads them directly.
+- If artifacts are missing in a deployment branch, the app can bootstrap training automatically.
+- Missing plots are regenerated from the available models and dataset.
 - The agent tab becomes active when `GEMINI_API_KEY` is configured in Hugging Face Space **Secrets**.
 
 For Hugging Face Spaces:
@@ -89,15 +89,18 @@ Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges
   - confidence notes
 - Follow-up Q&A over the current customer case
 - Graceful fallback when the Gemini secret is not configured
+- Runtime secret detection message in the app header for easier Hugging Face debugging
 
 ## Project Structure
 
 ```text
 .
 ├── app.py
+├── data/
 ├── train.py
 ├── knowledge_base/
 ├── models/
+├── reports/
 ├── src/
 │   ├── inference.py
 │   ├── runtime_assets.py
@@ -164,3 +167,4 @@ Current tests cover:
 - `main.py` contains older exploratory experiments and is not part of the hosted app path.
 - Generated vector indices are excluded from git and rebuilt locally when needed.
 - Generated EDA summary files are excluded from git.
+- `reports/Report.tex` and `reports/Report.pdf` document the final milestone deliverable.
