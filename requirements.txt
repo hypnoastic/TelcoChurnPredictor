@@ -1,6 +1,6 @@
 pandas
 numpy
-scikit-learn
+scikit-learn==1.8.0
 matplotlib
 seaborn
 gradio==4.44.0
@@ -10,5 +10,10 @@ imbalanced-learn
 
 statsmodels
 
-
 huggingface_hub<0.25.0
+faiss-cpu
+langchain-community==0.4.1
+langchain-core==1.2.29
+langchain-google-genai==3.2.0
+langgraph==1.1.6
+pytest
