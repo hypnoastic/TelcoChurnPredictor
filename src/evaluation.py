@@ -1,4 +1,13 @@
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
+from sklearn.metrics import (
+    accuracy_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
+    roc_curve,
+    auc,
+)
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -9,9 +18,9 @@ def get_evaluation_metrics(y_true, y_pred):
     """
     return {
         "Accuracy": accuracy_score(y_true, y_pred),
-        "Precision": precision_score(y_true, y_pred),
-        "Recall": recall_score(y_true, y_pred),
-        "F1 Score": f1_score(y_true, y_pred)
+        "Precision": precision_score(y_true, y_pred, zero_division=0),
+        "Recall": recall_score(y_true, y_pred, zero_division=0),
+        "F1 Score": f1_score(y_true, y_pred, zero_division=0)
     }
 
 def plot_confusion_matrix(y_true, y_pred, model_name, save_path=None):
@@ -50,6 +59,30 @@ def plot_roc_curve(models_dict, X_test, y_test, save_path=None):
     plt.legend(loc='lower right')
     plt.tight_layout()
     
+    if save_path:
+        plt.savefig(save_path)
+        plt.close()
+    else:
+        return plt.gcf()
+
+
+def plot_precision_recall_curve(models_dict, X_test, y_test, save_path=None):
+    """
+    Generates a combined precision-recall curve for multiple models.
+    """
+    plt.figure(figsize=(10, 6))
+
+    for name, model in models_dict.items():
+        if hasattr(model, "predict_proba"):
+            y_probs = model.predict_proba(X_test)[:, 1]
+            precision, recall, _ = precision_recall_curve(y_test, y_probs)
+            plt.plot(recall, precision, label=name)
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.legend(loc='lower left')
+    plt.tight_layout()
+
     if save_path:
         plt.savefig(save_path)
         plt.close()

@@ -1,288 +1,249 @@
+import tempfile
+import uuid
+from pathlib import Path
+
 import gradio as gr
 import pandas as pd
-import joblib
-import os
-import numpy as np
-import train
 
-# ---------------------------------------------------------
-# Trigger Training
-# ---------------------------------------------------------
-print("Starting Application...")
-print("Triggering Advanced Model Training (This may take a moment)...")
-try:
-    train.main()
-    print("Training Complete.")
-except Exception as e:
-    print(f"Training Failed: {e}")
-    exit(1)
-
-# Load Models and Metrics
-MODELS_DIR = './models'
-PLOTS_DIR = './plots'
-
-try:
-    lr_pipeline = joblib.load(os.path.join(MODELS_DIR, 'logistic_regression_model.joblib'))
-    dt_pipeline = joblib.load(os.path.join(MODELS_DIR, 'decision_tree_model.joblib'))
-    metrics = joblib.load(os.path.join(MODELS_DIR, 'metrics.joblib'))
-except FileNotFoundError as e:
-    print(f"Error: Models not found. {e}")
-    exit(1)
-
-def predict_churn(model_name, gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService, MultipleLines, 
-                  InternetService, OnlineSecurity, OnlineBackup, DeviceProtection, TechSupport, 
-                  StreamingTV, StreamingMovies, Contract, PaperlessBilling, PaymentMethod, 
-                  MonthlyCharges, TotalCharges):
-    
-    # Create DataFrame
-    data = {
-        'gender': [gender],
-        'SeniorCitizen': [int(SeniorCitizen)],
-        'Partner': [Partner],
-        'Dependents': [Dependents],
-        'tenure': [int(tenure)],
-        'PhoneService': [PhoneService],
-        'MultipleLines': [MultipleLines],
-        'InternetService': [InternetService],
-        'OnlineSecurity': [OnlineSecurity],
-        'OnlineBackup': [OnlineBackup],
-        'DeviceProtection': [DeviceProtection],
-        'TechSupport': [TechSupport],
-        'StreamingTV': [StreamingTV],
-        'StreamingMovies': [StreamingMovies],
-        'Contract': [Contract],
-        'PaperlessBilling': [PaperlessBilling],
-        'PaymentMethod': [PaymentMethod],
-        'MonthlyCharges': [float(MonthlyCharges)],
-        'TotalCharges': [float(TotalCharges)]
-    }
-    
-    df = pd.DataFrame(data)
-    
-    # Select Model & Threshold
-    if model_name == "Logistic Regression":
-        model = lr_pipeline
-        threshold = metrics['Logistic Regression'].get('Threshold', 0.5)
-    elif model_name == "Decision Tree":
-        model = dt_pipeline
-        threshold = metrics['Decision Tree'].get('Threshold', 0.5)
-        
-    # Predict
-    try:
-        prob = model.predict_proba(df)[0][1]
-        pred_class = 1 if prob >= threshold else 0
-    except Exception as e:
-        return f"Error: {str(e)}", "Error"
-
-    label = "Yes (Churn)" if pred_class == 1 else "No (Retain)"
-    prob_percent = f"{prob*100:.2f}%"
-    
-    return label, prob_percent
-
-# ---------------------------------------------------------
-# Gradio Interface
-# ---------------------------------------------------------
-# ---------------------------------------------------------
-# Gradio Interface
-# ---------------------------------------------------------
-theme = gr.themes.Soft(
-    primary_hue="blue",
-    secondary_hue="slate",
+from src.inference import (
+    get_available_models,
+    get_required_columns,
+    load_model_bundles,
+    predict_dataframe,
+    predict_single,
 )
+from src.runtime_assets import ensure_runtime_assets
 
+APP_TITLE = "Customer Churn Prediction & Retention Strategist"
+FORM_FIELD_ORDER = [
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+]
+
+BOOT_ERROR = ""
+RUNTIME_ASSETS = {"plots_dir": "plots", "eda_dir": "plots/eda"}
+MODEL_BUNDLES = {}
+
+try:
+    RUNTIME_ASSETS = ensure_runtime_assets()
+    MODEL_BUNDLES = load_model_bundles()
+except Exception as exc:
+    BOOT_ERROR = str(exc)
+
+
+def _build_customer_payload(*values):
+    payload = dict(zip(FORM_FIELD_ORDER, values))
+    payload["SeniorCitizen"] = int(bool(payload["SeniorCitizen"]))
+    payload["tenure"] = int(payload["tenure"])
+    payload["MonthlyCharges"] = float(payload["MonthlyCharges"])
+    payload["TotalCharges"] = float(payload["TotalCharges"])
+    return payload
+
+
+def _format_drivers(drivers):
+    if not drivers:
+        return "No strong drivers were extracted from the selected model."
+    return "\n".join(f"- {driver}" for driver in drivers)
+
+
+def run_single_prediction(model_name, *values):
+    try:
+        result = predict_single(_build_customer_payload(*values), model_name=model_name)
+    except Exception as exc:
+        return f"Error: {exc}", "Error", "Prediction failed."
+
+    details = (
+        f"### Key churn drivers\n{_format_drivers(result['drivers'])}\n\n"
+        f"Threshold used: `{result['threshold']:.3f}`"
+    )
+    return result["prediction"], result["probability_pct"], details
+
+
+def score_csv_file(file_path, model_name):
+    if not file_path:
+        return "Upload a CSV file to score customers.", pd.DataFrame(), None
+
+    try:
+        input_df = pd.read_csv(file_path)
+        result_df = predict_dataframe(input_df, model_name=model_name)
+    except Exception as exc:
+        return f"CSV scoring failed: {exc}", pd.DataFrame(), None
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", prefix="churn_predictions_") as handle:
+        result_df.to_csv(handle.name, index=False)
+        download_path = handle.name
+
+    churn_count = int((result_df["churn_prediction"] == "Yes (Churn)").sum())
+    summary = (
+        f"Scored `{len(result_df)}` customers with `{model_name}`. "
+        f"Flagged `{churn_count}` high-risk customers."
+    )
+    return summary, result_df, download_path
+
+
+def _metric_rows():
+    rows = []
+    for name, bundle in MODEL_BUNDLES.items():
+        metrics = bundle.metrics
+        rows.append(
+            [
+                name,
+                f"{metrics.get('Accuracy', 0):.1%}",
+                f"{metrics.get('Precision', 0):.1%}",
+                f"{metrics.get('Recall', 0):.1%}",
+                f"{metrics.get('F1 Score', 0):.1%}",
+                f"{bundle.threshold:.4f}",
+            ]
+        )
+    return rows
+
+
+def _build_customer_form():
+    components = {}
+    with gr.Row():
+        with gr.Column(scale=1):
+            gr.Markdown("### Customer Profile")
+            components["gender"] = gr.Dropdown(["Female", "Male"], label="Gender", value="Female")
+            components["SeniorCitizen"] = gr.Checkbox(label="Senior Citizen")
+            components["Partner"] = gr.Dropdown(["Yes", "No"], label="Partner", value="No")
+            components["Dependents"] = gr.Dropdown(["Yes", "No"], label="Dependents", value="No")
+            components["tenure"] = gr.Slider(0, 72, label="Tenure (Months)", value=12)
+
+            gr.Markdown("### Services")
+            components["PhoneService"] = gr.Dropdown(["Yes", "No"], label="Phone Service", value="Yes")
+            components["MultipleLines"] = gr.Dropdown(["No phone service", "No", "Yes"], label="Multiple Lines", value="No")
+            components["InternetService"] = gr.Dropdown(["DSL", "Fiber optic", "No"], label="Internet Service", value="Fiber optic")
+            components["OnlineSecurity"] = gr.Dropdown(["No", "Yes", "No internet service"], label="Online Security", value="No")
+            components["OnlineBackup"] = gr.Dropdown(["Yes", "No", "No internet service"], label="Online Backup", value="No")
+            components["DeviceProtection"] = gr.Dropdown(["No", "Yes", "No internet service"], label="Device Protection", value="No")
+            components["TechSupport"] = gr.Dropdown(["No", "Yes", "No internet service"], label="Tech Support", value="No")
+
+        with gr.Column(scale=1):
+            gr.Markdown("### Engagement & Billing")
+            components["StreamingTV"] = gr.Dropdown(["No", "Yes", "No internet service"], label="Streaming TV", value="Yes")
+            components["StreamingMovies"] = gr.Dropdown(["No", "Yes", "No internet service"], label="Streaming Movies", value="Yes")
+            components["Contract"] = gr.Dropdown(["Month-to-month", "One year", "Two year"], label="Contract", value="Month-to-month")
+            components["PaperlessBilling"] = gr.Dropdown(["Yes", "No"], label="Paperless Billing", value="Yes")
+            components["PaymentMethod"] = gr.Dropdown(
+                [
+                    "Electronic check",
+                    "Mailed check",
+                    "Bank transfer (automatic)",
+                    "Credit card (automatic)",
+                ],
+                label="Payment Method",
+                value="Electronic check",
+            )
+            components["MonthlyCharges"] = gr.Number(label="Monthly Charges ($)", value=70.0)
+            components["TotalCharges"] = gr.Number(label="Total Charges ($)", value=1000.0)
+    return components
+
+
+theme = gr.themes.Soft(primary_hue="blue", secondary_hue="slate")
 css = """
-.gradio-container {max_width: 1200px !important}
-
-/* Light Mode Headings */
-h1 {color: #0f172a !important; font-size: 40px !important;} /* Slate-900 */
-h2 {color: #0369a1 !important; font-size: 28px !important;} /* Sky-700 */
-h3 {color: #475569 !important; font-size: 20px !important;} /* Slate-600 */
-
-/* Dark Mode Headings */
-.dark h1 {color: #f8fafc !important;} 
-.dark h2 {color: #ffffff !important;} /* Pure White */
-.dark h3 {color: #94a3b8 !important;} 
-
-/* Graph Container - Adaptive */
-.gradio-image {
-    height: 420px !important;
-    width: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 8px !important;
-    background-color: #f8fafc !important; /* Light bg */
-}
-
-.dark .gradio-image {
-    border: 1px solid #334155 !important;
-    background-color: #1e293b !important; /* Dark bg */
-}
-
-.gradio-image img {
-    max-height: 400px !important;
-    width: auto !important;
-    object-fit: contain !important;
-}
+.gradio-container {max-width: 1280px !important;}
+.app-note {padding: 12px 16px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe;}
 """
 
-with gr.Blocks(theme=theme, title="Telecom Churn Prediction", css=css) as demo:
-    with gr.Row():
-        gr.Markdown("# Telecom Customer Churn Prediction System")
+with gr.Blocks(theme=theme, title=APP_TITLE, css=css) as demo:
+    session_id = gr.State(str(uuid.uuid4()))
+    gr.Markdown(f"# {APP_TITLE}")
+    gr.Markdown(
+        "ML-based churn prediction for Milestone 1, extended into an agentic retention workflow for Milestone 2."
+    )
 
-    
-    with gr.Tab("Model Performance Dashboard"):
-        gr.Markdown("## Key Performance Indicators (Test Set)")
-        
-        # Metrics Table
-        files_data = []
-        for name, m in metrics.items():
-            threshold_val = m.get('Threshold', 0.5)
-            files_data.append([
-                name, 
-                f"{m['Accuracy']:.1%}", 
-                f"{m['Precision']:.1%}", 
-                f"{m['Recall']:.1%}", 
-                f"{m['F1 Score']:.1%}",
-                f"{threshold_val:.4f}"
-            ])
-        
+    if BOOT_ERROR:
+        gr.Markdown(f"**Startup warning:** {BOOT_ERROR}")
+    else:
+        gr.Markdown(
+            "<div class='app-note'>The app uses saved model artifacts at runtime. Missing plots are regenerated from the saved models and dataset without retraining.</div>"
+        )
+
+    with gr.Tab("Model Dashboard"):
+        gr.Markdown("## Evaluation Summary")
         gr.Dataframe(
             headers=["Model", "Accuracy", "Precision", "Recall", "F1 Score", "Threshold"],
-            value=files_data,
-            interactive=False
+            value=_metric_rows(),
+            interactive=False,
         )
-        
-        gr.Markdown("---")
-        gr.Markdown("## Visual Analysis")
-        
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 1. ROC Curve (Discrimination)")
-                gr.Image(os.path.join(PLOTS_DIR, 'roc_comparison.png'), show_label=False)
-            with gr.Column():
-                gr.Markdown("### 2. Precision-Recall Curve (Trade-off)")
-                gr.Image(os.path.join(PLOTS_DIR, 'pr_curve.png'), show_label=False)
-        
-        gr.Markdown("---")
-        gr.Markdown("## Logistic Regression Analysis")
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 3. Confusion Matrix")
-                if os.path.exists(os.path.join(PLOTS_DIR, 'logistic_regression_cm.png')):
-                    gr.Image(os.path.join(PLOTS_DIR, 'logistic_regression_cm.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
-            with gr.Column():
-                gr.Markdown("### 4. Top Coefficients")
-                if os.path.exists(os.path.join(PLOTS_DIR, 'lr_coef.png')):
-                    gr.Image(os.path.join(PLOTS_DIR, 'lr_coef.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
 
-        gr.Markdown("---")
-        gr.Markdown("## Decision Tree Analysis")
         with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 5. Confusion Matrix")
-                if os.path.exists(os.path.join(PLOTS_DIR, 'decision_tree_cm.png')):
-                    gr.Image(os.path.join(PLOTS_DIR, 'decision_tree_cm.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
-            with gr.Column():
-                gr.Markdown("### 6. Feature Importance")
-                if os.path.exists(os.path.join(PLOTS_DIR, 'dt_importance.png')):
-                    gr.Image(os.path.join(PLOTS_DIR, 'dt_importance.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
+            gr.Image(Path(RUNTIME_ASSETS["plots_dir"]) / "roc_comparison.png", label="ROC Comparison", show_label=True)
+            gr.Image(Path(RUNTIME_ASSETS["plots_dir"]) / "pr_curve.png", label="Precision-Recall Curve", show_label=True)
 
-    with gr.Tab("Exploratory Data Analysis"):
-        gr.Markdown("## Data Distribution & Correlation")
-        
-        EDA_DIR = os.path.join(PLOTS_DIR, 'eda')
-        
         with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 1. Tenure Distribution")
-                if os.path.exists(os.path.join(EDA_DIR, 'dist_tenure.png')):
-                    gr.Image(os.path.join(EDA_DIR, 'dist_tenure.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
-            with gr.Column():
-                gr.Markdown("### 2. Monthly Charges Distribution")
-                if os.path.exists(os.path.join(EDA_DIR, 'dist_MonthlyCharges.png')):
-                    gr.Image(os.path.join(EDA_DIR, 'dist_MonthlyCharges.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
-        
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 3. Total Charges Distribution")
-                if os.path.exists(os.path.join(EDA_DIR, 'dist_TotalCharges.png')):
-                    gr.Image(os.path.join(EDA_DIR, 'dist_TotalCharges.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
-            with gr.Column():
-                gr.Markdown("### 4. Correlation Matrix")
-                if os.path.exists(os.path.join(EDA_DIR, 'correlation_matrix.png')):
-                    gr.Image(os.path.join(EDA_DIR, 'correlation_matrix.png'), show_label=False)
-                else:
-                    gr.Markdown("Plot not found.")
+            gr.Image(Path(RUNTIME_ASSETS["plots_dir"]) / "logistic_regression_cm.png", label="Logistic Regression Confusion Matrix", show_label=True)
+            gr.Image(Path(RUNTIME_ASSETS["plots_dir"]) / "lr_coef.png", label="Top Logistic Coefficients", show_label=True)
 
-    with gr.Tab("Prediction System"):
-        gr.Markdown("## Customer Churn Probability Estimator")
-        
         with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### Customer Profile")
-                with gr.Group():
-                    gender = gr.Dropdown(["Female", "Male"], label="Gender", value="Female")
-                    SeniorCitizen = gr.Checkbox(label="Senior Citizen")
-                    Partner = gr.Dropdown(["Yes", "No"], label="Partner", value="No")
-                    Dependents = gr.Dropdown(["Yes", "No"], label="Dependents", value="No")
-                    tenure = gr.Slider(0, 72, label="Tenure (Months)", value=12)
-                
-                gr.Markdown("### Service Details")
-                with gr.Group():
-                    PhoneService = gr.Dropdown(["Yes", "No"], label="Phone Service", value="Yes")
-                    MultipleLines = gr.Dropdown(["No phone service", "No", "Yes"], label="Multiple Lines", value="No")
-                    InternetService = gr.Dropdown(["DSL", "Fiber optic", "No"], label="Internet Service", value="Fiber optic")
-                    OnlineSecurity = gr.Dropdown(["No", "Yes", "No internet service"], label="Online Security", value="No")
-                    OnlineBackup = gr.Dropdown(["Yes", "No", "No internet service"], label="Online Backup", value="No")
-                    DeviceProtection = gr.Dropdown(["No", "Yes", "No internet service"], label="Device Protection", value="No")
-                    TechSupport = gr.Dropdown(["No", "Yes", "No internet service"], label="Tech Support", value="No")
+            gr.Image(Path(RUNTIME_ASSETS["plots_dir"]) / "decision_tree_cm.png", label="Decision Tree Confusion Matrix", show_label=True)
+            gr.Image(Path(RUNTIME_ASSETS["plots_dir"]) / "dt_importance.png", label="Decision Tree Feature Importance", show_label=True)
 
-            with gr.Column(scale=1):
-                gr.Markdown("### Usage & Billing")
-                with gr.Group():
-                    StreamingTV = gr.Dropdown(["No", "Yes", "No internet service"], label="Streaming TV", value="Yes")
-                    StreamingMovies = gr.Dropdown(["No", "Yes", "No internet service"], label="Streaming Movies", value="Yes")
-                    Contract = gr.Dropdown(["Month-to-month", "One year", "Two year"], label="Contract", value="Month-to-month")
-                    PaperlessBilling = gr.Dropdown(["Yes", "No"], label="Paperless Billing", value="Yes")
-                    PaymentMethod = gr.Dropdown(['Electronic check', 'Mailed check', 'Bank transfer (automatic)', 'Credit card (automatic)'], label="Payment Method", value="Electronic check")
-                    MonthlyCharges = gr.Number(label="Monthly Charges ($)", value=70.0)
-                    TotalCharges = gr.Number(label="Total Charges ($)", value=1000.0)
-                
-                gr.Markdown("### Prediction Control")
-                with gr.Group():
-                    model_selector = gr.Dropdown(["Logistic Regression", "Decision Tree"], label="Select Evaluation Model", value="Logistic Regression")
-                    predict_btn = gr.Button("Calculate Churn Risk", variant="primary", size="lg")
-                
-                gr.Markdown("### Results")
-                with gr.Group():
-                    with gr.Row():
-                        output_label = gr.Textbox(label="Prediction Result", scale=2)
-                        output_prob = gr.Textbox(label="Probability Score", scale=1)
+    with gr.Tab("EDA"):
+        gr.Markdown("## Exploratory Data Analysis")
+        with gr.Row():
+            gr.Image(Path(RUNTIME_ASSETS["eda_dir"]) / "dist_tenure.png", label="Tenure Distribution", show_label=True)
+            gr.Image(Path(RUNTIME_ASSETS["eda_dir"]) / "dist_MonthlyCharges.png", label="Monthly Charges Distribution", show_label=True)
+        with gr.Row():
+            gr.Image(Path(RUNTIME_ASSETS["eda_dir"]) / "dist_TotalCharges.png", label="Total Charges Distribution", show_label=True)
+            gr.Image(Path(RUNTIME_ASSETS["eda_dir"]) / "correlation_matrix.png", label="Correlation Matrix", show_label=True)
+
+    with gr.Tab("Single Customer Prediction"):
+        model_selector = gr.Dropdown(get_available_models(), value="Logistic Regression", label="Scoring Model")
+        form_components = _build_customer_form()
+        predict_btn = gr.Button("Calculate Churn Risk", variant="primary")
+        with gr.Row():
+            output_label = gr.Textbox(label="Prediction")
+            output_prob = gr.Textbox(label="Churn Probability")
+        output_details = gr.Markdown()
 
         predict_btn.click(
-            predict_churn,
-            inputs=[model_selector, gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService, MultipleLines, 
-                    InternetService, OnlineSecurity, OnlineBackup, DeviceProtection, TechSupport, 
-                    StreamingTV, StreamingMovies, Contract, PaperlessBilling, PaymentMethod, 
-                    MonthlyCharges, TotalCharges],
-            outputs=[output_label, output_prob]
+            run_single_prediction,
+            inputs=[model_selector] + [form_components[name] for name in FORM_FIELD_ORDER],
+            outputs=[output_label, output_prob, output_details],
         )
+
+    with gr.Tab("Batch CSV Scoring"):
+        gr.Markdown(
+            "## Upload customer data\n"
+            f"Required columns: `{', '.join(get_required_columns())}`"
+        )
+        batch_model_selector = gr.Dropdown(get_available_models(), value="Logistic Regression", label="Scoring Model")
+        csv_input = gr.File(label="Customer CSV", file_types=[".csv"], type="filepath")
+        batch_btn = gr.Button("Score Uploaded CSV", variant="primary")
+        batch_summary = gr.Markdown()
+        batch_table = gr.Dataframe(label="Scored Customers", interactive=False)
+        batch_download = gr.File(label="Download Scored CSV")
+
+        batch_btn.click(
+            score_csv_file,
+            inputs=[csv_input, batch_model_selector],
+            outputs=[batch_summary, batch_table, batch_download],
+        )
+
+    with gr.Tab("Agentic Retention Strategist"):
+        gr.Markdown(
+            "## Milestone 2 work in progress\n"
+            "The LangGraph retention workflow will appear here once the agent, retrieval layer, and structured output pipeline are wired in."
+        )
+        gr.Textbox(value=session_id.value if hasattr(session_id, "value") else "", label="Session ID", interactive=False)
 
 if __name__ == "__main__":
     demo.launch(share=False)
