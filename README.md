@@ -1,163 +1,166 @@
 ---
-title: Telco Churn Predictor
+title: Customer Churn Prediction & Retention Strategist
 colorFrom: blue
 colorTo: gray
 sdk: gradio
 sdk_version: 4.44.0
-python_version: "3.10"
+python_version: "3.11"
 app_file: app.py
 pinned: false
 license: mit
 ---
 
-# Telecom Customer Churn Prediction System
+# Customer Churn Prediction & Agentic Retention Strategy
 
-Production ML system for predicting customer churn using Logistic Regression and Decision Trees with advanced feature engineering and SMOTE balancing.
+This project now covers both assignment milestones in one hosted Gradio application:
 
-## System Flow
+- **Milestone 1**: classical ML-based churn prediction with preprocessing, model comparison, EDA, single-customer scoring, and CSV batch scoring.
+- **Milestone 2**: a LangGraph-based retention strategist that scores churn risk, retrieves retention best practices from a local knowledge base, and generates a structured intervention plan with follow-up Q&A.
+
+## Hosted Workflow
+
+The app is designed for Hugging Face Spaces with `python_version: "3.11"`.
+
+- The app **does not retrain on startup**.
+- Saved models are loaded from `models/`.
+- Missing plots are regenerated from the saved models and dataset without retraining.
+- The agent tab becomes active when `GEMINI_API_KEY` is configured in Hugging Face Space **Secrets**.
+
+For Hugging Face Spaces:
+
+1. Open the Space settings.
+2. Add a secret named `GEMINI_API_KEY`.
+3. Optionally add:
+   - `RETENTION_MODEL=gemini-3-flash-preview`
+   - `RETENTION_FALLBACK_MODEL=gemini-3.1-flash-lite-preview`
+   - `RETRIEVER_TOP_K=4`
+
+Do **not** hard-code API keys in the repository.
+
+## System Architecture
 
 ```mermaid
-flowchart TB
-    A["<b>Raw Data</b><br/>7,043 customers<br/>21 features"] --> B["<b>Data Cleaning</b><br/>Handle missing values<br/>Encode target"]
-    B --> C["<b>Train-Test Split</b><br/>75% train / 25% test<br/>Stratified sampling"]
-    
-    C --> D["<b>Numeric Processing</b><br/>StandardScaler<br/>4 features"]
-    C --> E["<b>Categorical Processing</b><br/>OneHotEncoder<br/>15 features"]
-    
-    D --> F["<b>Feature Engineering</b><br/>PolynomialFeatures<br/>Lasso Selection"]
-    E --> F
-    
-    F --> G["<b>SMOTE Balancing</b><br/>2.77:1 → 1:1<br/>Training set only"]
-    
-    G --> H["<b>Model Training</b><br/>Stratified 5-Fold CV"]
-    
-    H --> I["<b>Logistic Regression</b><br/>GridSearchCV<br/>C, penalty"]
-    H --> J["<b>Decision Tree</b><br/>GridSearchCV<br/>max_depth, min_samples"]
-    
-    I --> K["<b>Threshold Optimization</b><br/>Maximize F1-Score<br/>Precision-Recall curve"]
-    J --> K
-    
-    K --> L["<b>Model Evaluation</b><br/>Accuracy, Precision, Recall<br/>F1-Score, ROC-AUC"]
-    
-    L --> M["<b>Save Models</b><br/>.joblib files<br/>Scaler + Metrics"]
-    
-    M --> N["<b>Gradio Dashboard</b><br/>3 Tabs: Performance<br/>EDA, Predictions"]
-    
-    N --> O["<b>Churn Prediction</b><br/>Yes/No + Probability<br/>Real-time inference"]
-    
-    style A fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000
-    style B fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000
-    style C fill:#e1bee7,stroke:#4a148c,stroke-width:2px,color:#000
-    style D fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000
-    style E fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000
-    style F fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
-    style G fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000
-    style H fill:#b2dfdb,stroke:#004d40,stroke-width:2px,color:#000
-    style I fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
-    style J fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
-    style K fill:#dcedc8,stroke:#33691e,stroke-width:2px,color:#000
-    style L fill:#f8bbd0,stroke:#880e4f,stroke-width:2px,color:#000
-    style M fill:#d1c4e9,stroke:#311b92,stroke-width:2px,color:#000
-    style N fill:#b2ebf2,stroke:#006064,stroke-width:2px,color:#000
-    style O fill:#a5d6a7,stroke:#1b5e20,stroke-width:3px,color:#000
+flowchart TD
+    A[Customer Form / CSV Upload] --> B[Shared Inference Layer]
+    B --> C[Saved ML Models]
+    C --> D[Churn Probability + Drivers]
+
+    D --> E[LangGraph State]
+    E --> F[Risk Summary Node]
+    F --> G[FAISS Retriever]
+    G --> H[Local Retention Knowledge Base]
+    H --> I[Gemini Structured Output]
+    I --> J[Retention Report]
+    J --> K[Follow-up Q&A]
 ```
 
-## Pipeline Overview
+## Milestone 1 Features
 
-### 1. Data Processing
-- Load CSV dataset (7,043 customers, 21 features)
-- Handle missing values in TotalCharges (11 records)
-- Encode target variable: Churn (Yes=1, No=0)
-- Split: 75% train, 25% test (stratified)
+- Data cleaning for `TotalCharges`
+- Standard scaling and categorical encoding with scikit-learn pipelines
+- Logistic Regression and Decision Tree comparison
+- Metrics: Accuracy, Precision, Recall, F1 Score, confusion matrices
+- EDA visualizations
+- Single-customer scoring
+- CSV batch scoring with downloadable enriched output
+- Driver summaries per prediction
 
-### 2. Feature Engineering
-- **Numeric Features** (4): tenure, MonthlyCharges, TotalCharges, SeniorCitizen
-  - Apply StandardScaler (mean=0, std=1)
-- **Categorical Features** (15): gender, Contract, InternetService, etc.
-  - Apply OneHotEncoder (drop_first=True)
-- **Advanced** (Logistic Regression only):
-  - PolynomialFeatures (degree=2, interactions)
-  - Lasso feature selection (30-50 features)
-- **Output**: 30 engineered features
+### Required CSV Input Columns
 
-### 3. Imbalance Handling
-- Original ratio: 2.77:1 (No Churn : Churn)
-- Apply SMOTE oversampling → 1:1 balanced training set
-- Maintains test set distribution for realistic evaluation
-
-### 4. Model Training
-- **Stratified 5-Fold Cross-Validation**
-- **GridSearchCV** for hyperparameter tuning
-- **Models**:
-  - **Logistic Regression**: C, penalty, max_features
-  - **Decision Tree**: max_depth, min_samples_leaf, class_weight
-- **Scoring**: Accuracy (primary metric)
-
-### 5. Threshold Optimization
-- Generate probability predictions on test set
-- Compute Precision-Recall curve
-- Select threshold maximizing F1-Score
-- Balances precision and recall for business needs
-
-### 6. Model Evaluation
-- **Metrics**: Accuracy, Precision, Recall, F1-Score, ROC-AUC
-- **Visualizations**: 
-  - Confusion matrices
-  - ROC curves (model comparison)
-  - Precision-Recall curves
-  - Feature importance (Decision Tree)
-  - Coefficients (Logistic Regression)
-  - Calibration curves
-
-### 7. Deployment
-- Save trained models (.joblib)
-- Gradio web interface with 3 tabs:
-  - **Performance Dashboard**: Metrics, ROC/PR curves, confusion matrices
-  - **EDA**: Distribution plots, correlation matrix
-  - **Prediction System**: Real-time churn prediction with probability scores
-
-## Quick Start
-
-```bash
-# Setup
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Train models
-python train.py
-
-# Launch dashboard
-python app.py  # http://127.0.0.1:7860
+```text
+gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService,
+MultipleLines, InternetService, OnlineSecurity, OnlineBackup,
+DeviceProtection, TechSupport, StreamingTV, StreamingMovies,
+Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges
 ```
+
+## Milestone 2 Features
+
+- LangGraph workflow with explicit typed state
+- Local RAG using FAISS
+- Telecom-focused retention playbooks stored in `knowledge_base/`
+- Structured retention reports with:
+  - business context
+  - risk summary
+  - key drivers
+  - retrieved evidence
+  - prioritized actions
+  - next-touch plan
+  - confidence notes
+- Follow-up Q&A over the current customer case
+- Graceful fallback when the Gemini secret is not configured
 
 ## Project Structure
 
-```
-├── app.py              # Gradio interface
-├── train.py            # Training pipeline
+```text
+.
+├── app.py
+├── train.py
+├── knowledge_base/
+├── models/
 ├── src/
-│   ├── data_loader.py     # Data loading & cleaning
-│   ├── preprocessing.py   # Feature transformers
-│   ├── models.py          # Model definitions
-│   └── evaluation.py      # Metrics & plotting
-├── data/               # CSV dataset
-├── models/             # Trained models (.joblib)
-└── plots/              # Visualizations
+│   ├── inference.py
+│   ├── runtime_assets.py
+│   ├── evaluation.py
+│   ├── preprocessing.py
+│   ├── data_loader.py
+│   └── agentic/
+│       ├── graph.py
+│       ├── retriever.py
+│       ├── schemas.py
+│       ├── state.py
+│       └── prompts.py
+└── tests/
 ```
 
-## Key Technical Decisions
+## Local Development
 
-| Component | Choice | Reason |
-|-----------|--------|--------|
-| **Imbalance** | SMOTE | Synthetic oversampling for 2.77:1 ratio |
-| **Scaling** | StandardScaler | Required for Logistic Regression |
-| **Encoding** | OneHotEncoder | Avoids ordinal assumptions |
-| **Features** | PolynomialFeatures | Captures interactions (tenure × contract) |
-| **Selection** | Lasso (L1) | Reduces overfitting |
-| **CV** | Stratified 5-Fold | Maintains class distribution |
-| **Threshold** | F1-Optimized | Balances precision/recall |
+Create a Python 3.11 environment for the closest match to the hosted runtime.
 
-## Technologies
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-Scikit-Learn • Imbalanced-Learn • Pandas • Gradio
+### Optional: Retrain Models Offline
+
+```bash
+python train.py
+```
+
+### Run the App
+
+```bash
+export GEMINI_API_KEY=your_key_here
+python app.py
+```
+
+If `GEMINI_API_KEY` is not set, the ML tabs will still work and the agent tab will show a configuration error when used.
+
+## Tests
+
+```bash
+pytest
+```
+
+Current tests cover:
+
+- shared inference outputs
+- batch scoring columns
+- CSV validation
+- agent configuration guardrails
+
+## Model And Agent Defaults
+
+- Default scoring model for agentic retention planning: **Logistic Regression**
+- Agent generation model: `gemini-3-flash-preview`
+- Fallback generation model: `gemini-3.1-flash-lite-preview`
+- Embedding model: `gemini-embedding-001`
+- Vector store: **FAISS**
+
+## Notes
+
+- `main.py` contains older exploratory experiments and is not part of the hosted app path.
+- Generated vector indices are excluded from git and rebuilt locally when needed.
+- Generated EDA summary files are excluded from git.
