@@ -268,7 +268,6 @@ def _build_customer_form():
 theme = gr.themes.Soft(primary_hue="blue", secondary_hue="slate")
 css = """
 .gradio-container {max-width: 1280px !important;}
-.app-note {padding: 12px 16px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe;}
 """
 
 with gr.Blocks(theme=theme, title=APP_TITLE, css=css) as demo:
@@ -282,10 +281,6 @@ with gr.Blocks(theme=theme, title=APP_TITLE, css=css) as demo:
 
     if BOOT_ERROR:
         gr.Markdown(f"**Startup warning:** {BOOT_ERROR}")
-    else:
-        gr.Markdown(
-            "<div class='app-note'>The app uses saved model artifacts at runtime. Missing plots are regenerated from the saved models and dataset without retraining.</div>"
-        )
 
     if agent_env_ok:
         gr.Markdown(f"**Agent configuration:** detected runtime secret via `{agent_env_source}`.")
