@@ -1,5 +1,6 @@
 import tempfile
 import uuid
+import os
 from pathlib import Path
 
 import gradio as gr
@@ -56,6 +57,14 @@ def _build_customer_payload(*values):
     payload["MonthlyCharges"] = float(payload["MonthlyCharges"])
     payload["TotalCharges"] = float(payload["TotalCharges"])
     return payload
+
+
+def get_agent_env_status():
+    if os.getenv("GEMINI_API_KEY"):
+        return True, "GEMINI_API_KEY"
+    if os.getenv("GOOGLE_API_KEY"):
+        return True, "GOOGLE_API_KEY"
+    return False, "missing"
 
 
 def _format_drivers(drivers):
@@ -123,7 +132,10 @@ def get_retention_strategist():
         try:
             RETENTION_STRATEGIST = RetentionStrategist()
         except AgentConfigurationError as exc:
-            raise RuntimeError(str(exc)) from exc
+            raise RuntimeError(
+                f"{exc} Add the key in Hugging Face Space Settings -> Variables and secrets, "
+                "then restart or factory reboot the Space."
+            ) from exc
     return RETENTION_STRATEGIST
 
 
@@ -266,11 +278,21 @@ with gr.Blocks(theme=theme, title=APP_TITLE, css=css) as demo:
         "ML-based churn prediction for Milestone 1, extended into an agentic retention workflow for Milestone 2."
     )
 
+    agent_env_ok, agent_env_source = get_agent_env_status()
+
     if BOOT_ERROR:
         gr.Markdown(f"**Startup warning:** {BOOT_ERROR}")
     else:
         gr.Markdown(
             "<div class='app-note'>The app uses saved model artifacts at runtime. Missing plots are regenerated from the saved models and dataset without retraining.</div>"
+        )
+
+    if agent_env_ok:
+        gr.Markdown(f"**Agent configuration:** detected runtime secret via `{agent_env_source}`.")
+    else:
+        gr.Markdown(
+            "**Agent configuration:** no Gemini key detected in the runtime environment. "
+            "Add `GEMINI_API_KEY` in Hugging Face Space Settings -> Variables and secrets, then restart the Space."
         )
 
     with gr.Tab("Model Dashboard"):
