@@ -1,9 +1,12 @@
 pandas
 numpy
-scikit-learn==1.8.0
+scikit-learn==1.7.2
 matplotlib
 seaborn
 gradio==4.44.0
+fastapi==0.112.2
+starlette==0.38.6
+pydantic==2.10.6
 joblib
 rich
 imbalanced-learn

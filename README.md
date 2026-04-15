@@ -4,7 +4,7 @@ colorFrom: blue
 colorTo: gray
 sdk: gradio
 sdk_version: 4.44.0
-python_version: "3.11"
+python_version: "3.10"
 app_file: app.py
 pinned: false
 license: mit
@@ -19,7 +19,7 @@ This project now covers both assignment milestones in one hosted Gradio applicat
 
 ## Hosted Workflow
 
-The app is designed for Hugging Face Spaces with `python_version: "3.11"`.
+The app is designed for Hugging Face Spaces with `python_version: "3.10"`.
 
 - The app **does not retrain on startup**.
 - Saved models are loaded from `models/`.
@@ -115,10 +115,10 @@ Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges
 
 ## Local Development
 
-Create a Python 3.11 environment for the closest match to the hosted runtime.
+Create a Python 3.10 environment for the closest match to the hosted runtime.
 
 ```bash
-python3.11 -m venv .venv
+python3.10 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
