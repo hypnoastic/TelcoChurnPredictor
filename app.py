@@ -40,6 +40,7 @@ FORM_FIELD_ORDER = [
 BOOT_ERROR = ""
 RUNTIME_ASSETS = {"plots_dir": "plots", "eda_dir": "plots/eda"}
 MODEL_BUNDLES = {}
+RETENTION_STRATEGIST = None
 
 try:
     RUNTIME_ASSETS = ensure_runtime_assets()
@@ -63,6 +64,69 @@ def _format_drivers(drivers):
     return "\n".join(f"- {driver}" for driver in drivers)
 
 
+def _format_evidence_markdown(evidence):
+    if not evidence:
+        return "No retrieved evidence available."
+    lines = ["### Retrieved evidence"]
+    for item in evidence:
+        lines.append(f"- **{item['title']}** (`{item['source']}`): {item['excerpt']}")
+    return "\n".join(lines)
+
+
+def _format_report_markdown(report, prediction):
+    actions = report.get("recommended_actions", [])
+    action_lines = []
+    for action in sorted(actions, key=lambda item: item.get("priority", 99)):
+        action_lines.append(
+            f"{action['priority']}. **{action['action']}**\n"
+            f"Owner: {action['owner']} | Timeline: {action['timeline']}\n"
+            f"Rationale: {action['rationale']}"
+        )
+
+    touch_plan = "\n".join(f"- {item}" for item in report.get("next_touch_plan", []))
+    drivers = "\n".join(f"- {item}" for item in report.get("key_drivers", []))
+    evidence = "\n".join(
+        f"- `{item['source']}`: {item['insight']}" for item in report.get("retrieved_evidence", [])
+    )
+    priority_order = "\n".join(f"- {item}" for item in report.get("priority_order", []))
+
+    return (
+        f"## Structured Retention Report\n\n"
+        f"**Business context:** {report.get('business_context', '')}\n\n"
+        f"**Predicted churn risk:** {prediction.get('probability_pct', 'N/A')} "
+        f"({prediction.get('prediction', 'N/A')})\n\n"
+        f"**Risk summary:** {report.get('risk_summary', '')}\n\n"
+        f"### Key drivers\n{drivers}\n\n"
+        f"### Retrieved evidence\n{evidence}\n\n"
+        f"### Recommended actions\n" + "\n\n".join(action_lines) + "\n\n"
+        f"### Priority order\n{priority_order}\n\n"
+        f"### Next touch plan\n{touch_plan}\n\n"
+        f"### Confidence notes\n{report.get('confidence_notes', '')}"
+    )
+
+
+def _format_follow_up_markdown(response):
+    supporting_points = "\n".join(f"- {point}" for point in response.get("supporting_points", []))
+    cited_sources = ", ".join(f"`{source}`" for source in response.get("cited_sources", []))
+    return (
+        f"### Follow-up answer\n{response.get('answer', '')}\n\n"
+        f"### Supporting points\n{supporting_points}\n\n"
+        f"**Cited sources:** {cited_sources or 'None'}"
+    )
+
+
+def get_retention_strategist():
+    global RETENTION_STRATEGIST
+    if RETENTION_STRATEGIST is None:
+        from src.agentic import AgentConfigurationError, RetentionStrategist
+
+        try:
+            RETENTION_STRATEGIST = RetentionStrategist()
+        except AgentConfigurationError as exc:
+            raise RuntimeError(str(exc)) from exc
+    return RETENTION_STRATEGIST
+
+
 def run_single_prediction(model_name, *values):
     try:
         result = predict_single(_build_customer_payload(*values), model_name=model_name)
@@ -74,6 +138,39 @@ def run_single_prediction(model_name, *values):
         f"Threshold used: `{result['threshold']:.3f}`"
     )
     return result["prediction"], result["probability_pct"], details
+
+
+def generate_retention_report(model_name, retention_query, *values):
+    thread_id = str(uuid.uuid4())
+    try:
+        strategist = get_retention_strategist()
+        _, report, prediction, evidence = strategist.generate_report(
+            _build_customer_payload(*values),
+            user_query=retention_query,
+            thread_id=thread_id,
+            model_name=model_name,
+        )
+    except Exception as exc:
+        return thread_id, f"Agent run failed: {exc}", "No report generated.", "No evidence generated."
+
+    status = (
+        f"Generated a retention report for `{prediction['prediction']}` at "
+        f"`{prediction['probability_pct']}` using LangGraph orchestration."
+    )
+    return thread_id, status, _format_report_markdown(report, prediction), _format_evidence_markdown(evidence)
+
+
+def answer_retention_follow_up(thread_id, question):
+    if not thread_id:
+        return "Generate a retention report before asking a follow-up question.", "", ""
+
+    try:
+        strategist = get_retention_strategist()
+        response, evidence = strategist.answer_follow_up(thread_id, question)
+    except Exception as exc:
+        return f"Follow-up failed: {exc}", "", ""
+
+    return _format_follow_up_markdown(response), _format_evidence_markdown(evidence), ""
 
 
 def score_csv_file(file_path, model_name):
@@ -163,7 +260,7 @@ css = """
 """
 
 with gr.Blocks(theme=theme, title=APP_TITLE, css=css) as demo:
-    session_id = gr.State(str(uuid.uuid4()))
+    report_thread_id = gr.State("")
     gr.Markdown(f"# {APP_TITLE}")
     gr.Markdown(
         "ML-based churn prediction for Milestone 1, extended into an agentic retention workflow for Milestone 2."
@@ -239,11 +336,37 @@ with gr.Blocks(theme=theme, title=APP_TITLE, css=css) as demo:
         )
 
     with gr.Tab("Agentic Retention Strategist"):
-        gr.Markdown(
-            "## Milestone 2 work in progress\n"
-            "The LangGraph retention workflow will appear here once the agent, retrieval layer, and structured output pipeline are wired in."
+        gr.Markdown("## Generate a grounded retention plan")
+        agent_model_selector = gr.Dropdown(get_available_models(), value="Logistic Regression", label="Scoring Model")
+        retention_query = gr.Textbox(
+            label="Retention focus",
+            placeholder="Example: Prioritize low-cost interventions for a high-risk customer.",
         )
-        gr.Textbox(value=session_id.value if hasattr(session_id, "value") else "", label="Session ID", interactive=False)
+        agent_form_components = _build_customer_form()
+        generate_report_btn = gr.Button("Generate Retention Report", variant="primary")
+        agent_status = gr.Markdown()
+        retention_report_output = gr.Markdown()
+        retrieved_evidence_output = gr.Markdown()
+
+        generate_report_btn.click(
+            generate_retention_report,
+            inputs=[agent_model_selector, retention_query] + [agent_form_components[name] for name in FORM_FIELD_ORDER],
+            outputs=[report_thread_id, agent_status, retention_report_output, retrieved_evidence_output],
+        )
+
+        gr.Markdown("## Follow-up Q&A")
+        follow_up_question = gr.Textbox(
+            label="Ask a follow-up question",
+            placeholder="Example: Which action should we try first if the customer rejects a discount?",
+        )
+        follow_up_btn = gr.Button("Ask Follow-up")
+        follow_up_answer = gr.Markdown()
+
+        follow_up_btn.click(
+            answer_retention_follow_up,
+            inputs=[report_thread_id, follow_up_question],
+            outputs=[follow_up_answer, retrieved_evidence_output, follow_up_question],
+        )
 
 if __name__ == "__main__":
     demo.launch(share=False)

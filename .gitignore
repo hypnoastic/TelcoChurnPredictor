@@ -9,3 +9,9 @@ venv/
 *.joblib
 plots/
 data/
+vector_store/
+.pytest_cache/
+reports/eda_summary.txt
+!models/logistic_regression_model.joblib
+!models/decision_tree_model.joblib
+!models/metrics.joblib
